@@ -35,6 +35,7 @@ export class Enemy {
   private jumpTimer = 0;
   private jumping = false;
   freezeTimer = 0; // scaled seconds of frozen state (ICE)
+  carrier: "none" | "crate" | "coin" = "none";
   private baseColorHex = 0x2b2f38;
 
   container: Phaser.GameObjects.Container;
@@ -66,6 +67,7 @@ export class Enemy {
     this.jumpTimer = 0.5 + Math.random();
     this.jumping = false;
     this.freezeTimer = 0;
+    this.carrier = "none";
 
     this.baseColorHex = COLOR_HEX[def.color];
     drawEnemyShape(this.gfx, def, this.baseColorHex);
@@ -218,6 +220,13 @@ export class Enemy {
 
   applyFreeze(seconds: number): void {
     if (seconds > this.freezeTimer) this.freezeTimer = seconds;
+  }
+
+  /** Mark this enemy as a drop carrier and recolor it so players can read the drop (§10.1/§17.1). */
+  setCarrier(kind: "crate" | "coin"): void {
+    this.carrier = kind;
+    const col = kind === "crate" ? 0x4aa8ff : 0x3ddc84;
+    drawEnemyShape(this.gfx, this.def, col);
   }
 
   render(sx: number, sy: number): void {

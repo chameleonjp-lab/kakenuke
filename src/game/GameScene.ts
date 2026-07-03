@@ -27,13 +27,12 @@ import { ProjectilePool, Projectile } from "./weapons/Projectile";
 import { ItemSystem, Item } from "./items/ItemSystem";
 import { Hud } from "./ui/Hud";
 import { burst } from "./Shapes";
+import { sfx } from "./audio/Sfx";
 
 interface RunConfig {
   mode: GameMode;
   characterId: string;
 }
-
-type DropEnemy = Enemy & { dropCrate?: boolean; dropCoin?: boolean };
 
 export class GameScene extends Phaser.Scene {
   private mode: GameMode = "normal";
@@ -75,6 +74,10 @@ export class GameScene extends Phaser.Scene {
   // debug
   private debugMode = false;
   private invincible = false;
+
+  // sfx throttling (§18) — avoid deafening spam on rapid-fire / multi-kill
+  private lastShootSfx = -Infinity;
+  private lastHitSfx = -Infinity;
 
   private overlay?: Phaser.GameObjects.Container;
 
@@ -157,6 +160,7 @@ export class GameScene extends Phaser.Scene {
 
   private setupInput(): void {
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
+      sfx.resume();
       this.ptr.isDown = true;
       this.ptr.x = p.x;
       this.ptr.y = p.y;
@@ -177,6 +181,8 @@ export class GameScene extends Phaser.Scene {
     this.keys = kb.addKeys(
       "W,A,S,D,UP,DOWN,LEFT,RIGHT,SHIFT,P,ONE,BACKTICK,H,B,I,C,R"
     ) as Record<string, Phaser.Input.Keyboard.Key>;
+
+    kb.once("keydown", () => sfx.resume());
 
     kb.on("keydown-BACKTICK", () => this.toggleDebug());
     kb.on("keydown-P", () => this.togglePause());
@@ -253,7 +259,7 @@ export class GameScene extends Phaser.Scene {
 
     // 8. collisions (only meaningful contact matters; run every frame so
     //    overlaps during frozen time still kill — §5.4)
-    this.handleCollisions(this.time.now);
+    this.handleCollisions(this.time.now, scaledDt > 0);
 
     // 9. score
     this.recomputeScore();
@@ -322,6 +328,11 @@ export class GameScene extends Phaser.Scene {
     if (this.playerBullets.active.length > 400) return;
     const p = this.playerBullets.obtain();
     p.spawn({ fromEnemy: false, canHitEnemies: false, pierce: 0, homing: false, ...cfg });
+    const now = this.time.now;
+    if (now - this.lastShootSfx >= 70) {
+      this.lastShootSfx = now;
+      sfx.shoot();
+    }
   }
 
   private fireEnemyBullet(
@@ -425,16 +436,19 @@ export class GameScene extends Phaser.Scene {
     if (!force && this.score < this.nextBossScore) return;
     const pool = bossPoolForScore(this.score);
     const id = pool[Math.floor(Math.random() * pool.length)];
-    this.boss.spawn(
-      id,
-      LOGICAL_WIDTH / 2,
-      this.cameraY + LOGICAL_HEIGHT * 1.15
-    );
+    const bossX = LOGICAL_WIDTH / 2;
+    const bossY = this.cameraY + LOGICAL_HEIGHT * 1.15;
+    this.boss.spawn(id, bossX, bossY);
     this.nextBossScore = this.score + Phaser.Math.Between(1400, 2400);
+
+    // 10000+ "boss mixed with mobs" reinforcement wave (§11.1).
+    if (this.score >= 10000) {
+      this.spawner.spawnBurst(bossX, bossY - 300, 6, this.score);
+    }
   }
 
   // ---- collisions ----
-  private handleCollisions(nowMs: number): void {
+  private handleCollisions(nowMs: number, timeFlowing: boolean): void {
     const enemies = this.spawner.active;
 
     // player bullets vs enemies / boss
@@ -502,16 +516,19 @@ export class GameScene extends Phaser.Scene {
       if (consumed) this.enemyBullets.release(p);
     }
 
-    // guard bits vs enemies (contact damage)
-    for (const b of this.weapons.guardBits) {
-      b.fireTimer -= 0.016;
-      for (const e of enemies) {
-        if (!e.alive) continue;
-        const rr = (20 + e.def.radius) ** 2;
-        if ((b.worldX - e.worldX) ** 2 + (b.worldY - e.worldY) ** 2 <= rr) {
-          if (b.fireTimer <= 0) {
-            this.damageEnemy(e, b.damage);
-            b.fireTimer = 0.2;
+    // guard bits vs enemies (contact damage) — only while time is flowing,
+    // so guard bits don't deal damage while gameplay is frozen (§5.4).
+    if (timeFlowing) {
+      for (const b of this.weapons.guardBits) {
+        b.fireTimer -= 0.016;
+        for (const e of enemies) {
+          if (!e.alive) continue;
+          const rr = (20 + e.def.radius) ** 2;
+          if ((b.worldX - e.worldX) ** 2 + (b.worldY - e.worldY) ** 2 <= rr) {
+            if (b.fireTimer <= 0) {
+              this.damageEnemy(e, b.damage);
+              b.fireTimer = 0.2;
+            }
           }
         }
       }
@@ -577,20 +594,23 @@ export class GameScene extends Phaser.Scene {
     if (e.hit(dmg)) this.killEnemy(e);
   }
 
-  private killEnemy(e: DropEnemy): void {
+  private killEnemy(e: Enemy): void {
     this.kills++;
     this.killScore += e.def.score;
     const sx = this.screenX(e.worldX);
     const sy = this.screenY(e.worldY);
     burst(this, sx, sy, 0xffffff, 14, 50);
-    if (e.dropCrate) {
+    if (e.carrier === "crate") {
       this.items.spawn("crate", e.worldX, e.worldY);
-    } else if (e.dropCoin || e.def.color === "green") {
+    } else if (e.carrier === "coin") {
       this.items.spawn("coin", e.worldX, e.worldY);
     }
-    e.dropCrate = false;
-    e.dropCoin = false;
     e.hide();
+    const now = this.time.now;
+    if (now - this.lastHitSfx >= 50) {
+      this.lastHitSfx = now;
+      sfx.hit();
+    }
   }
 
   private damageBoss(dmg: number): void {
@@ -602,6 +622,7 @@ export class GameScene extends Phaser.Scene {
       const sy = this.screenY(this.boss.worldY);
       burst(this, sx, sy, 0xff9a5a, 40, 120);
       this.cameras.main.shake(200, 0.01);
+      sfx.boss();
       // reward crate + coins
       this.items.spawn("crate", this.boss.worldX, this.boss.worldY);
       for (let i = 0; i < 5; i++) {
@@ -622,7 +643,23 @@ export class GameScene extends Phaser.Scene {
     dmg: number,
     color: number
   ): void {
-    burst(this, this.screenX(x), this.screenY(y), color, 20, radius * 0.6);
+    const sx = this.screenX(x);
+    const sy = this.screenY(y);
+    burst(this, sx, sy, color, 20, radius * 0.6);
+
+    // translucent blast circle — kept low-alpha and below bullets so it
+    // never obscures incoming enemy fire (§17.3).
+    const blast = this.add.circle(sx, sy, radius, color, 0.25);
+    blast.setDepth(28);
+    this.tweens.add({
+      targets: blast,
+      scale: 1.15,
+      alpha: 0,
+      duration: 250,
+      ease: "Quad.out",
+      onComplete: () => blast.destroy(),
+    });
+
     const rr = radius * radius;
     for (const e of this.spawner.active) {
       if (!e.alive) continue;
@@ -641,13 +678,32 @@ export class GameScene extends Phaser.Scene {
     if (it.kind === "coin") {
       this.runCoins++;
       burst(this, this.screenX(it.worldX), this.screenY(it.worldY), 0x3ddc84, 6, 20);
+      sfx.coin();
     } else {
       const id = pickRandomWeapon(Math.random, this.mode === "hardcore");
       const lv = this.weapons.add(id, 1);
       this.itemBonus += 50;
       this.showWeaponPopup(WEAPONS[id].name, lv, it.worldX, it.worldY);
+      this.showPickupRing(this.screenX(it.worldX), this.screenY(it.worldY));
+      sfx.weapon();
     }
     this.items.release(it);
+  }
+
+  /** Brief expanding blue ring on weapon-crate pickup (§17.2). */
+  private showPickupRing(sx: number, sy: number): void {
+    const ring = this.add.circle(sx, sy, 10);
+    ring.setStrokeStyle(4, 0x9fe8ff);
+    ring.setFillStyle(0x000000, 0);
+    ring.setDepth(120);
+    this.tweens.add({
+      targets: ring,
+      scale: 4,
+      alpha: 0,
+      duration: 400,
+      ease: "Quad.out",
+      onComplete: () => ring.destroy(),
+    });
   }
 
   private showWeaponPopup(name: string, lv: number, wx: number, wy: number): void {
@@ -767,6 +823,7 @@ export class GameScene extends Phaser.Scene {
       120
     );
     this.cameras.main.shake(260, 0.015);
+    sfx.death();
 
     const cost = this.continueCost();
     const canContinue =
@@ -811,7 +868,12 @@ export class GameScene extends Phaser.Scene {
   private resumeAfterContinue(): void {
     this.clearOverlay();
     this.player.grantInvuln(this.time.now, ECONOMY.CONTINUE_INVULN_SECONDS);
-    this.deadline.pushBack(LOGICAL_HEIGHT * DEADLINE.CONTINUE_PUSHBACK);
+    // Push the deadline edge back to a fixed offset behind the player, but
+    // never move it forward (§13.3) — a late continue shouldn't lose ground.
+    this.deadline.y = Math.min(
+      this.deadline.y,
+      this.player.worldY - LOGICAL_HEIGHT * DEADLINE.CONTINUE_PUSHBACK
+    );
     this.enemyBullets.clear();
     this.running = true;
   }
