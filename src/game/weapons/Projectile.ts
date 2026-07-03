@@ -37,6 +37,29 @@ export class Projectile {
   }
 
   spawn(cfg: Partial<Projectile>): void {
+    // Reset every behaviour field to its default BEFORE applying cfg, so a
+    // projectile recycled from the pool never inherits stale state from a
+    // previous weapon (e.g. a former ROCKET's aoeRadius making a STANDARD
+    // shot explosive, or an ICE_CANNON's freeze leaking onto other shots).
+    this.vx = 0;
+    this.vy = 0;
+    this.damage = 1;
+    this.radius = 6;
+    this.life = 3;
+    this.homing = false;
+    this.turnRate = 0;
+    this.canHitEnemies = false;
+    this.fromEnemy = false;
+    this.pierce = 0;
+    this.aoeRadius = 0;
+    this.aoeDamage = 0;
+    this.freeze = 0;
+    this.antiAir = false;
+    this.color = 0xffffff;
+    this.visualW = 6;
+    this.visualH = 12;
+    this.ownerId = -1;
+
     Object.assign(this, cfg);
     this.alive = true;
     this.gfx.setFillStyle(this.color, 1);

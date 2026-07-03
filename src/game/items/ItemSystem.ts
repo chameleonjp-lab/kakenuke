@@ -30,6 +30,7 @@ export class Item {
     this.worldY = y;
     this.alive = true;
     this.spin = 0;
+    this.vx = 0; // reset: a recycled coin's magnet velocity must not leak to a crate
     const g = this.shape;
     g.clear();
     if (kind === "coin") {

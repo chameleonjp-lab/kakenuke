@@ -101,7 +101,13 @@ export class GameScene extends Phaser.Scene {
     this.player.worldX = LOGICAL_WIDTH / 2;
     this.player.worldY = 0;
     this.player.maxForwardY = 0;
+    // Scenes are reused across REPLAY, so clear carried-over input/time state.
+    this.time0.reset();
     this.time0.sensitivity = cfg.inputSensitivity * save.settings.sensitivity;
+    this.lastShootSfx = -Infinity;
+    this.lastHitSfx = -Infinity;
+    this.invincible = false;
+    this.ptr.isDown = false;
 
     this.deadline = new Deadline(this);
     this.deadline.reset(this.cameraY - 300);
@@ -327,7 +333,7 @@ export class GameScene extends Phaser.Scene {
   private firePlayerBullet(cfg: Partial<Projectile>): void {
     if (this.playerBullets.active.length > 400) return;
     const p = this.playerBullets.obtain();
-    p.spawn({ fromEnemy: false, canHitEnemies: false, pierce: 0, homing: false, ...cfg });
+    p.spawn(cfg); // spawn() resets all fields, so cfg alone is authoritative
     const now = this.time.now;
     if (now - this.lastShootSfx >= 70) {
       this.lastShootSfx = now;
@@ -751,7 +757,7 @@ export class GameScene extends Phaser.Scene {
       if (it.alive) it.render(this.screenX(it.worldX), this.screenY(it.worldY), scaledDt);
     }
 
-    // guard bit & supporter visuals (draw simple markers via reuse of items? use graphics)
+    // guard bit & supporter visuals
     this.renderOrbiters();
 
     // deadline edge
