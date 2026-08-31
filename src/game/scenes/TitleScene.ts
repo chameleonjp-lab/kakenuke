@@ -3,14 +3,23 @@
 import Phaser from "phaser";
 import { LOGICAL_WIDTH, LOGICAL_HEIGHT } from "../../config/progression";
 import { save } from "../economy/SaveData";
+import { focusPlayerName, mountTitlePlatform, readPlayerName } from "../platform";
 import { button, label } from "../ui/UiKit";
 
 export class TitleScene extends Phaser.Scene {
+  private platformCleanup?: () => void;
+
   constructor() {
     super("Title");
   }
 
   create(): void {
+    this.platformCleanup?.();
+    this.platformCleanup = mountTitlePlatform();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.platformCleanup?.();
+      this.platformCleanup = undefined;
+    });
     this.cameras.main.setBackgroundColor("#05060a");
     const cx = LOGICAL_WIDTH / 2;
 
@@ -25,21 +34,25 @@ export class TitleScene extends Phaser.Scene {
     label(this, cx, 800, "K A K E N U K E", 44, "#7affe8");
     label(this, cx, 900, "時間をあやつるシューティング", 34, "#9fb2c8");
 
-    label(this, cx, 1080, `BEST  ${save.bestScore}`, 52, "#ffffff");
-    label(this, cx, 1150, `◇ COINS  ${save.totalCoins}`, 42, "#3ddc84");
+    label(this, cx, 990, `BEST  ${save.bestScore}`, 52, "#ffffff");
+    label(this, cx, 1060, `◇ COINS  ${save.totalCoins}`, 42, "#3ddc84");
 
-    button(this, cx, 1360, 560, 130, "START", () => {
+    button(this, cx, 1430, 560, 130, "START", () => {
+      if (!readPlayerName()) {
+        focusPlayerName();
+        return;
+      }
       this.scene.start("ModeSelect");
     }, { color: 0x1f6f43 });
 
-    button(this, cx, 1520, 560, 110, "SETTINGS", () => {
+    button(this, cx, 1590, 560, 110, "SETTINGS", () => {
       this.scene.start("Settings");
     }, { color: 0x33475f });
 
     label(
       this,
       cx,
-      1740,
+      1780,
       "ドラッグで移動・止めると時間も止まる\n背後の闇に飲まれる前に駆け抜けろ",
       30,
       "#66707f"
