@@ -33,6 +33,142 @@
         display: block;
         touch-action: none;
       }
+
+      .kakenuke-platform {
+        position: fixed;
+        z-index: 20;
+        box-sizing: border-box;
+        padding: 0.55em 0.8em;
+        border: 1px solid rgba(122, 255, 232, 0.7);
+        border-radius: 0.7em;
+        background: rgba(5, 6, 10, 0.96);
+        color: #c8d6e6;
+        font-family: monospace;
+        line-height: 1.25;
+        overflow-y: auto;
+        pointer-events: auto;
+        touch-action: manipulation;
+        user-select: text;
+        -webkit-user-select: text;
+        box-shadow: 0 0 1.2em rgba(122, 255, 232, 0.16);
+      }
+
+      .kakenuke-name-label,
+      .kakenuke-result-heading,
+      .kakenuke-ranking-heading {
+        display: block;
+        color: #7affe8;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+
+      .kakenuke-name-input {
+        box-sizing: border-box;
+        width: 100%;
+        margin-top: 0.25em;
+        padding: 0.28em 0.45em;
+        border: 1px solid #9fe8ff;
+        border-radius: 0.35em;
+        background: #111a24;
+        color: #ffffff;
+        font: inherit;
+        user-select: text;
+        -webkit-user-select: text;
+      }
+
+      .kakenuke-name-input::placeholder {
+        color: #66707f;
+      }
+
+      .kakenuke-platform-status {
+        min-height: 1.25em;
+        margin: 0.22em 0;
+        color: #9fb2c8;
+        font-size: 0.78em;
+      }
+
+      .kakenuke-platform-actions {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.55em;
+      }
+
+      .kakenuke-platform button,
+      .kakenuke-platform-actions a,
+      .kakenuke-lab-link {
+        box-sizing: border-box;
+        display: inline-flex;
+        min-height: 2em;
+        align-items: center;
+        justify-content: center;
+        padding: 0.28em 0.65em;
+        border: 1px solid rgba(159, 232, 255, 0.75);
+        border-radius: 0.35em;
+        background: #1f6f43;
+        color: #ffffff;
+        font: inherit;
+        font-size: 0.78em;
+        text-decoration: none;
+        cursor: pointer;
+      }
+
+      .kakenuke-platform-actions a,
+      .kakenuke-lab-link {
+        background: #2f4a6b;
+      }
+
+      .kakenuke-share-text {
+        box-sizing: border-box;
+        display: block;
+        width: 100%;
+        min-height: 4.3em;
+        margin: 0.35em 0;
+        padding: 0.35em;
+        resize: vertical;
+        border: 1px solid #33475f;
+        border-radius: 0.35em;
+        background: #0b1119;
+        color: #ffffff;
+        font: inherit;
+        font-size: 0.7em;
+        line-height: 1.25;
+        user-select: text;
+        -webkit-user-select: text;
+      }
+
+      .kakenuke-share-button {
+        width: 100%;
+      }
+
+      .kakenuke-ranking-heading {
+        margin-top: 0.35em;
+        font-size: 0.8em;
+      }
+
+      .kakenuke-ranking-list {
+        margin: 0.15em 0 0.45em;
+        padding-left: 1.6em;
+        font-size: 0.72em;
+      }
+
+      .kakenuke-ranking-list li {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.8em;
+        padding: 0.12em 0;
+        color: #c8d6e6;
+      }
+
+      .kakenuke-ranking-list strong {
+        color: #ffd24a;
+        white-space: nowrap;
+      }
+
+      .kakenuke-lab-link {
+        width: 100%;
+        margin-top: 0.2em;
+      }
     </style>
   </head>
   <body>

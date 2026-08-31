@@ -3,6 +3,7 @@
 import Phaser from "phaser";
 import { LOGICAL_WIDTH, LOGICAL_HEIGHT, type GameMode } from "../../config/progression";
 import { save } from "../economy/SaveData";
+import { mountResultPlatform } from "../platform";
 import { button, label } from "../ui/UiKit";
 import type { WeaponId } from "../../config/weapons";
 
@@ -20,6 +21,8 @@ interface ResultData {
 
 export class ResultScene extends Phaser.Scene {
   private resultData!: ResultData;
+  private platformCleanup?: () => void;
+
   constructor() {
     super("Result");
   }
@@ -28,6 +31,12 @@ export class ResultScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.platformCleanup?.();
+    this.platformCleanup = mountResultPlatform(this.resultData);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.platformCleanup?.();
+      this.platformCleanup = undefined;
+    });
     this.cameras.main.setBackgroundColor("#05060a");
     const cx = LOGICAL_WIDTH / 2;
     const d = this.resultData;
@@ -47,21 +56,21 @@ export class ResultScene extends Phaser.Scene {
       `獲得コイン ◇${d.coins}`,
       `累計コイン ◇${save.totalCoins}`,
     ];
-    label(this, cx, 780, lines.join("\n"), 40, "#c8d6e6");
+    label(this, cx, 720, lines.join("\n"), 40, "#c8d6e6");
 
     // weapons acquired
-    label(this, cx, 1080, "WEAPONS", 44, "#7affe8");
+    label(this, cx, 910, "WEAPONS", 44, "#7affe8");
     if (d.weapons.length === 0) {
-      label(this, cx, 1150, "-", 36, "#66707f");
+      label(this, cx, 980, "-", 36, "#66707f");
     } else {
       const wtext = d.weapons
         .map((w) => `${w.name} Lv${w.level}`)
         .join("   ");
-      label(this, cx, 1170, wtext, 34, "#9fe8ff", false);
+      label(this, cx, 980, wtext, 34, "#9fe8ff", false);
     }
 
     if (d.newBest && save.hardcoreUnlocked) {
-      label(this, cx, 1280, "HARDCORE UNLOCKED!", 40, "#ff8a3d");
+      label(this, cx, 1040, "HARDCORE UNLOCKED!", 40, "#ff8a3d");
     }
 
     button(this, cx, 1500, 560, 130, "REPLAY", () => {

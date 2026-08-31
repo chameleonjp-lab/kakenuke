@@ -5,6 +5,7 @@ import Phaser from "phaser";
 import { LOGICAL_WIDTH, LOGICAL_HEIGHT, ECONOMY, type GameMode } from "../../config/progression";
 import { CHARACTERS, DEFAULT_CHARACTER_ID, type CharacterConfig } from "../../config/characters";
 import { save } from "../economy/SaveData";
+import { readPlayerName } from "../platform";
 import { button, label } from "../ui/UiKit";
 
 export class CharacterSelectScene extends Phaser.Scene {
@@ -26,6 +27,10 @@ export class CharacterSelectScene extends Phaser.Scene {
   }
 
   create(): void {
+    if (!readPlayerName()) {
+      this.scene.start("Title");
+      return;
+    }
     this.cameras.main.setBackgroundColor("#05060a");
     const cx = LOGICAL_WIDTH / 2;
 
